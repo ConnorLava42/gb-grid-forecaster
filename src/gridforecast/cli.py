@@ -226,3 +226,12 @@ def retrain_monthly():
     from gridforecast.pipeline.live import retrain_monthly as run
 
     run()
+
+
+@app.command()
+def report():
+    """Regenerate docs/index.html."""
+    from gridforecast.report import build_dashboard
+
+    build_dashboard()
+    print("Wrote docs/index.html")

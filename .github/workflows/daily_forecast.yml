@@ -20,11 +20,12 @@ jobs:
       - run: uv run gridforecast ingest-recent --days 16
       - run: uv run gridforecast forecast
       - run: uv run gridforecast score
+      - run: uv run gridforecast report   # NEW: rebuild docs/index.html
       - name: Commit results
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add forecasts/ reports/live_scores.parquet reports/live_summary.json data/raw/
+          git add forecasts/ reports/live_scores.parquet reports/live_summary.json docs/ data/raw/  # NEW: docs/
           git diff --cached --quiet || git commit -m "Forecast issued $(date -u +%F)"
           git pull --rebase
           git push
