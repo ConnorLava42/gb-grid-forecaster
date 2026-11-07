@@ -155,3 +155,42 @@ def compare(production: str = "lgbm_cqr"):
     if production in runs:
         summary = metrics.score(runs[production])
         (REPORT_DIR / "backtest_summary.json").write_text(json.dumps(summary, indent=2))
+
+
+@app.command()
+def explain():
+    """SHAP plots for LightGBM and the TV pickup event study."""
+    from gridforecast.data.fixtures import load_matches
+    from gridforecast.data.store import load
+    from gridforecast.explain import plot_event_study, shap_plots, tv_pickup_event_study
+    from gridforecast.features.build import FEATURES, TARGET
+    from gridforecast.models.gbm import LGBMQuantile
+    from gridforecast.models.tune import load_best_params
+    from gridforecast.pipeline.tables import ORIGINS
+
+    origins = load(ORIGINS)
+    train = origins[
+        (origins["target_time"] < pd.Timestamp(TEST_END, tz="UTC")) & origins[TARGET].notna()
+    ]
+    model = LGBMQuantile(params=load_best_params()).fit(train[FEATURES], train[TARGET])
+    for p in shap_plots(model, train[FEATURES]):
+        print(f"Saved {p}")
+
+    # TV pickup: every no-football backtest we have, test year plus any tournament windows
+    files = [BACKTEST_DIR / "lgbm_nofootball.parquet"]
+    files += sorted((BACKTEST_DIR / "events").glob("lgbm_nofootball_*.parquet"))
+    files = [f for f in files if f.exists()]
+    if not files:
+        print(
+            "For the TV pickup study, first run: gridforecast backtest --model lgbm --no-football"
+        )
+        return
+    preds = pd.concat([pd.read_parquet(f) for f in files], ignore_index=True)
+    preds = preds.drop_duplicates(["issue_time", "target_time"])
+    study = tv_pickup_event_study(preds, load_matches())
+    if study.empty:
+        print("No England matches fall inside these backtests; add a tournament window (Phase 7).")
+        return
+    study.round(1).to_csv(REPORT_DIR / "tv_pickup.csv")
+    print(study.round(0))
+    print(f"Saved {plot_event_study(study)}")
