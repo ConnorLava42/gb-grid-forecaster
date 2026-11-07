@@ -194,3 +194,35 @@ def explain():
     study.round(1).to_csv(REPORT_DIR / "tv_pickup.csv")
     print(study.round(0))
     print(f"Saved {plot_event_study(study)}")
+
+
+@app.command()
+def train():
+    """Train the production model on all history and save it to models/production/."""
+    from gridforecast.pipeline.live import train_production
+
+    train_production()
+
+
+@app.command()
+def forecast(day: str = "", force: bool = False):
+    """Issue the 06:00 forecast for today (or --day YYYY-MM-DD)."""
+    from gridforecast.pipeline.live import forecast_today
+
+    forecast_today(date.fromisoformat(day) if day else None, force)
+
+
+@app.command()
+def score():
+    """Score every logged forecast whose target has passed."""
+    from gridforecast.pipeline.live import score_live
+
+    print(json.dumps(score_live(), indent=2))
+
+
+@app.command("retrain-monthly")
+def retrain_monthly():
+    """Retrain the production model if it doesn't get worse."""
+    from gridforecast.pipeline.live import retrain_monthly as run
+
+    run()
