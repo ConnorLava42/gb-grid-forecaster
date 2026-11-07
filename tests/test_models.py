@@ -7,7 +7,7 @@ import pytest
 from gridforecast.features.build import FEATURES, TARGET, build_origin_table
 from gridforecast.models.base import QCOLS, sort_quantiles
 from gridforecast.models.baseline import SeasonalNaive
-from gridforecast.models.ensemble import Average
+from gridforecast.models.ensemble import Average, Conformal
 from gridforecast.models.gbm import LGBMQuantile, LoadedLGBM
 
 
@@ -32,6 +32,7 @@ def _check(preds, n):
         lambda: LGBMQuantile(max_trees=60),
         lambda: LGBMQuantile(max_trees=60, residual=True),
         lambda: Average([SeasonalNaive, lambda: LGBMQuantile(max_trees=60)]),
+        lambda: Conformal(lambda: LGBMQuantile(max_trees=60)),
     ],
 )
 def test_model_interface(origins, factory):
@@ -53,6 +54,14 @@ def test_lightgbm_save_and_load_give_identical_forecasts(origins, tmp_path):
     np.testing.assert_allclose(
         model.predict(X.tail(50)).to_numpy(), loaded.predict(X.tail(50)).to_numpy(), rtol=1e-6
     )
+
+
+def test_conformal_moves_both_edges_by_q(origins):
+    X, y = origins[FEATURES], origins[TARGET]
+    model = Conformal(lambda: LGBMQuantile(max_trees=60)).fit(X, y)
+    base, out = model.model_.predict(X.tail(20)), model.predict(X.tail(20))
+    np.testing.assert_allclose(out["q90"] - base["q90"], model.q_)
+    np.testing.assert_allclose(base["q10"] - out["q10"], model.q_)
 
 
 @pytest.mark.nn

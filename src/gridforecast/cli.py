@@ -17,7 +17,7 @@ BACKTEST_DIR = REPORT_DIR / "backtests"
 def _factories(params: dict):
     """Every model in the ladder, by name. Imports inside so torch stays optional."""
     from gridforecast.models.baseline import SeasonalNaive
-    from gridforecast.models.ensemble import Average
+    from gridforecast.models.ensemble import Average, Conformal
     from gridforecast.models.gbm import LGBMQuantile
 
     def mlp():
@@ -31,6 +31,7 @@ def _factories(params: dict):
         "lgbm_resid": lambda: LGBMQuantile(params=params, residual=True),
         "mlp": mlp,
         "lgbm_mlp": lambda: Average([lambda: LGBMQuantile(params=params), mlp]),
+        "lgbm_cqr": lambda: Conformal(lambda: LGBMQuantile(params=params)),
     }
 
 
