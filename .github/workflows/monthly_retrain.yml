@@ -1,0 +1,31 @@
+name: Monthly retrain
+on:
+  schedule:
+    - cron: "41 3 2 * *"   # 03:41 UTC on the 2nd of each month
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: forecast-repo-writes
+  cancel-in-progress: false
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - run: uv run gridforecast ingest          # full history, about 10-20 minutes
+      - run: uv run gridforecast build
+      - run: uv run gridforecast retrain-monthly
+      - name: Commit the model if it changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add models/production/
+          git diff --cached --quiet || git commit -m "Monthly retrain $(date -u +%Y-%m)"
+          git pull --rebase
+          git push
