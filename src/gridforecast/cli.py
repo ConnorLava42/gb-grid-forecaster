@@ -28,3 +28,11 @@ def ingest_recent(days: int = 16):
     from gridforecast.pipeline.ingest import ingest_recent as run
 
     run(days)
+
+
+@app.command()
+def build(source: str = "historical_forecast"):
+    """Build model_table.parquet and the forecast-origin table from raw files."""
+    from gridforecast.pipeline.tables import build_tables
+
+    build_tables(source)
