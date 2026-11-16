@@ -18,7 +18,7 @@ def get_json(url: str, params: dict, retries: int = 5, timeout: int = 60):
             r = requests.get(
                 url, params=params, timeout=timeout, headers={"User-Agent": USER_AGENT}
             )
-        except requests.ConnectionError:
+        except (requests.ConnectionError, requests.Timeout):  # a dropped or slow connection
             time.sleep(2**attempt)
             continue
         if r.status_code == 429 or r.status_code >= 500:

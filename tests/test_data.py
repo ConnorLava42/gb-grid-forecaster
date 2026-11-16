@@ -49,3 +49,32 @@ def test_upsert_dedupes_and_keeps_newest(tmp_path):
     out = upsert(pd.DataFrame({"start_time": t[2:], "v": [30, 4]}), path, "start_time")
     assert out["start_time"].is_unique
     assert out["v"].tolist() == [1, 2, 30, 4]
+
+
+def test_get_json_retries_after_a_timeout(monkeypatch):
+    """A slow server (read timeout) is retried, not fatal: it stopped two daily runs."""
+    import requests
+
+    from gridforecast.data import http
+
+    calls = []
+
+    class Ok:
+        status_code = 200
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"data": []}
+
+    def flaky_get(*args, **kwargs):
+        calls.append(1)
+        if len(calls) < 3:
+            raise requests.ReadTimeout("the server took too long")
+        return Ok()
+
+    monkeypatch.setattr(http.requests, "get", flaky_get)
+    monkeypatch.setattr(http.time, "sleep", lambda _: None)
+    assert http.get_json("https://example.com", {}) == {"data": []}
+    assert len(calls) == 3
